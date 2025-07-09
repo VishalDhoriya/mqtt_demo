@@ -102,181 +102,95 @@ class _HostSessionScreenState extends State<HostSessionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Session Status Header
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Hosting Session',
-                          style: Theme.of(context).textTheme.headlineMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        if (_isStarting)
-                          const Row(
-                            children: [
-                              SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
-                                ),
-                              ),
-                              SizedBox(width: 8),
-                              Text(
-                                'Starting session...',
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          )
-                        else if (widget.mqttService.isBrokerRunning)
-                          const Row(
-                            children: [
-                              Icon(Icons.circle, color: Colors.green, size: 12),
-                              SizedBox(width: 8),
-                              Text(
-                                'Session is live',
-                                style: TextStyle(
-                                  color: Colors.green,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          )
-                        else
-                          const Text(
-                            'Session not started',
-                            style: TextStyle(
-                              color: Colors.grey,
-                              fontSize: 14,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  TextButton(
-                    onPressed: _stopHosting,
-                    style: TextButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        side: BorderSide(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const Text('Stop Session'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-
-        // Connected Participants Section
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Divider(height: 1),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Text(
-                    'Connected Participants',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.black,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '${widget.mqttService.connectedClientsCount}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              if (widget.mqttService.connectedClients.isEmpty)
-                Text(
-                  'No participants yet. Share your device IP for others to join.',
-                  style: TextStyle(
-                    color: Colors.grey.shade600,
-                    fontSize: 14,
-                  ),
-                )
-              else
-                Column(
-                  children: widget.mqttService.connectedClients.map((client) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Row(
+    return SingleChildScrollView(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Session Status Header
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            width: 6,
-                            height: 6,
-                            decoration: const BoxDecoration(
-                              color: Colors.green,
-                              shape: BoxShape.circle,
+                          Text(
+                            'Hosting Session',
+                            style: Theme.of(context).textTheme.headlineMedium,
+                          ),
+                          const SizedBox(height: 8),
+                          if (_isStarting)
+                            const Row(
+                              children: [
+                                SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                                  ),
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Starting session...',
+                                  style: TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            )
+                          else if (widget.mqttService.isBrokerRunning)
+                            const Row(
+                              children: [
+                                Icon(Icons.circle, color: Colors.green, size: 12),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Session is live',
+                                  style: TextStyle(
+                                    color: Colors.green,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            )
+                          else
+                            const Text(
+                              'Session not started',
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 14,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                client.deviceName,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                client.ipAddress,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                            ],
-                          ),
                         ],
                       ),
-                    );
-                  }).toList(),
+                    ),
+                    const SizedBox(width: 16),
+                    TextButton(
+                      onPressed: _stopHosting,
+                      style: TextButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          side: BorderSide(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text('Stop Session'),
+                    ),
+                  ],
                 ),
-              const SizedBox(height: 20),
-              const Divider(height: 1),
-            ],
+              ],
+            ),
           ),
-        ),
 
-        // Message Controls Section
-        if (widget.mqttService.isBrokerRunning) ...[
+          // Connected Participants Section
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Column(
@@ -284,65 +198,157 @@ class _HostSessionScreenState extends State<HostSessionScreen> {
               children: [
                 const Divider(height: 1),
                 const SizedBox(height: 20),
-                Text(
-                  'Send Message',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 16),
-                // Topic Selection
                 Row(
                   children: [
-                    const Text('Topic:', style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(width: 10),
-                    DropdownButton<String>(
-                      value: _selectedTopic,
-                      items: [
-                        widget.mqttService.defaultTopic,
-                        widget.mqttService.shareTopic,
-                      ].map((String topic) {
-                        return DropdownMenuItem<String>(
-                          value: topic,
-                          child: Text(topic),
-                        );
-                      }).toList(),
-                      onChanged: _onTopicChanged,
+                    Text(
+                      'Connected Participants',
+                      style: Theme.of(context).textTheme.titleLarge,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _messageController,
-                        decoration: const InputDecoration(
-                          hintText: 'Enter your message...',
-                          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.black,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${widget.mqttService.connectedClientsCount}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
                         ),
-                        onSubmitted: (_) => _publishMessage(),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    ElevatedButton(
-                      onPressed: _publishMessage,
-                      child: const Text('Send'),
-                    ),
                   ],
                 ),
+                const SizedBox(height: 16),
+                if (widget.mqttService.connectedClients.isEmpty)
+                  Text(
+                    'No participants yet. Share your device IP for others to join.',
+                    style: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontSize: 14,
+                    ),
+                  )
+                else
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 150),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        children: widget.mqttService.connectedClients.map((client) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: const BoxDecoration(
+                                    color: Colors.green,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      client.deviceName,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      client.ipAddress,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: 20),
                 const Divider(height: 1),
               ],
             ),
           ),
-          
-          // File Sharing Section
+
+          // Message Controls Section
           if (widget.mqttService.isBrokerRunning) ...[
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const SizedBox(height: 20),
+                  Text(
+                    'Send Message',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 16),
+                  // Topic Selection
+                  Row(
+                    children: [
+                      const Text('Topic:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(width: 10),
+                      DropdownButton<String>(
+                        value: _selectedTopic,
+                        items: [
+                          widget.mqttService.defaultTopic,
+                          widget.mqttService.shareTopic,
+                        ].map((String topic) {
+                          return DropdownMenuItem<String>(
+                            value: topic,
+                            child: Text(topic),
+                          );
+                        }).toList(),
+                        onChanged: _onTopicChanged,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _messageController,
+                          decoration: const InputDecoration(
+                            hintText: 'Enter your message...',
+                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          ),
+                          onSubmitted: (_) => _publishMessage(),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        onPressed: _publishMessage,
+                        child: const Text('Send'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
                   const Divider(height: 1),
+                ],
+              ),
+            ),
+            
+            // File Sharing Section
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   const SizedBox(height: 20),
                   FileShareWidget(mqttService: widget.mqttService),
                   const SizedBox(height: 20),
@@ -350,17 +356,42 @@ class _HostSessionScreenState extends State<HostSessionScreen> {
                 ],
               ),
             ),
+
+            // Message Log - Constrained height to prevent overflow
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 20),
+                  Text(
+                    'Message Log',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 16),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      minHeight: 200,
+                      maxHeight: 400,
+                    ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: MessageLog(
+                        mqttService: widget.mqttService,
+                        scrollController: _scrollController,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
           ],
         ],
-
-        // Message Log
-        Expanded(
-          child: MessageLog(
-            mqttService: widget.mqttService,
-            scrollController: _scrollController,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
