@@ -15,67 +15,38 @@ class MessageLog extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 300,
-      margin: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
+      margin: const EdgeInsets.all(24),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade50,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(8),
-                topRight: Radius.circular(8),
-              ),
-              border: Border(
-                bottom: BorderSide(color: Colors.grey.shade300),
-              ),
-            ),
+          // Header
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
             child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.black,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Icon(
-                    Icons.message,
-                    color: Colors.white,
-                    size: 16,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Text(
+                Text(
                   'Message Log',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    letterSpacing: 0.5,
-                  ),
+                  style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const Spacer(),
-                GestureDetector(
-                  onTap: mqttService.clearMessages,
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade400),
-                      borderRadius: BorderRadius.circular(4),
+                TextButton(
+                  onPressed: mqttService.clearMessages,
+                  style: TextButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        side: BorderSide(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
-                    child: Icon(
-                      Icons.clear,
-                      size: 16,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
+                  child: const Text('Clear'),
                 ),
               ],
             ),
           ),
+          
+          // Divider
+          const Divider(height: 1),
+          
+          // Messages
           Expanded(
             child: mqttService.messages.isEmpty
                 ? Center(
@@ -83,7 +54,7 @@ class MessageLog extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          Icons.inbox_outlined,
+                          Icons.forum_outlined,
                           size: 48,
                           color: Colors.grey.shade400,
                         ),
@@ -91,7 +62,7 @@ class MessageLog extends StatelessWidget {
                         Text(
                           'No messages yet',
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 16,
                             color: Colors.grey.shade600,
                             fontWeight: FontWeight.w500,
                           ),
@@ -100,7 +71,7 @@ class MessageLog extends StatelessWidget {
                         Text(
                           'Messages will appear here',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 14,
                             color: Colors.grey.shade500,
                           ),
                         ),
@@ -115,7 +86,7 @@ class MessageLog extends StatelessWidget {
                       final message = mqttService.messages[index];
                       final bool isEven = index % 2 == 0;
                       return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 6),
                         decoration: BoxDecoration(
                           color: isEven ? Colors.transparent : Colors.grey.shade50,
                         ),
@@ -127,6 +98,7 @@ class MessageLog extends StatelessWidget {
                             color: Colors.grey.shade800,
                             height: 1.4,
                           ),
+                          softWrap: true,
                         ),
                       );
                     },

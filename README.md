@@ -6,9 +6,12 @@ A Flutter application that demonstrates MQTT broker and client functionality, al
 
 - **MQTT Broker Mode**: Turn your device into an MQTT broker that other devices can connect to
 - **MQTT Client Mode**: Connect to an MQTT broker and publish/subscribe to topics
+- **Automatic Broker Discovery**: Find available MQTT brokers on your network automatically
+- **Manual Broker Entry**: Add brokers manually when auto-discovery doesn't find them
 - **Real-time Messaging**: Send and receive messages instantly between devices
 - **Visual Status Indicators**: Clear visual feedback for connection and subscription status
 - **Message Logging**: View all MQTT activities in real-time
+- **Modular Architecture**: Clean separation of concerns with dedicated services and widgets
 
 ## Architecture
 
@@ -38,9 +41,11 @@ The app uses two main packages:
 1. **Run the app** on Device B
 2. **Note this device's IP** displayed at the top (for reference)
 3. **Tap "Become MQTT Client"** to switch to client mode
-4. **Enter the Broker IP Address**: Input the IP address from Device A (shown at the top of Device A's screen)
-5. **Tap "Connect"** - the button should change to "Disconnect" if successful
-6. **Tap "Subscribe"** to subscribe to the default topic `test/topic`
+4. **Find the Broker**: Either:
+   - **Auto-Discovery**: Tap the search icon (🔍) next to the broker IP field to automatically discover brokers on your network
+   - **Manual Entry**: Enter the IP address from Device A directly in the broker IP field
+5. **Connect**: If using auto-discovery, tap a discovered broker to connect. If using manual entry, enter the IP and tap "Connect"
+6. **Subscribe**: Once connected, tap "Subscribe" to subscribe to the default topic `test/topic`
    - You should see a "Subscribed..." message appear in the log
 
 ### Testing Message Publishing
@@ -88,6 +93,29 @@ The app uses two main packages:
 - **Auto-scroll**: Automatically scrolls to show newest messages
 - **Clear Button**: Clears the message log
 
+## Broker Discovery Feature
+
+The app includes an automatic broker discovery feature that makes it easy to find and connect to MQTT brokers on your network.
+
+### How It Works
+1. **Network Scanning**: Automatically scans your local network for devices running MQTT brokers
+2. **Port Detection**: Checks common MQTT ports (1883, 8883, 9001, 8080) on all network devices
+3. **Visual Interface**: Shows discovered brokers in a user-friendly list
+4. **One-Tap Connect**: Simply tap any discovered broker to connect immediately
+
+### Using Broker Discovery
+1. **Open Discovery**: In client mode, tap the search icon (🔍) next to the broker IP field
+2. **Wait for Scan**: The app will automatically scan your network (takes up to 5 seconds)
+3. **Select Broker**: Tap any discovered broker from the list to connect
+4. **Manual Fallback**: If your broker isn't found, use the "Manual Entry" section to add it
+
+### Manual Entry Options
+- **Add to List**: Save manual entries for easy reuse
+- **Connect Now**: Connect immediately to a manually entered broker
+- **Remove Entries**: Delete manual entries you no longer need
+
+For detailed information about the broker discovery feature, see [BROKER_DISCOVERY.md](BROKER_DISCOVERY.md).
+
 ## Technical Details
 
 ### Default Configuration
@@ -123,15 +151,32 @@ The app uses two main packages:
 
 ```
 lib/
-├── main.dart           # Main UI and app entry point
-├── mqtt_service.dart   # MQTT broker and client logic
-└── pubspec.yaml       # Dependencies and project configuration
+├── main.dart                              # App entry point
+├── services/
+│   ├── mqtt_service.dart                  # MQTT broker and client logic
+│   ├── network_helper.dart                # Network interface detection
+│   └── broker_discovery_service.dart      # Broker discovery functionality
+├── screens/
+│   ├── mqtt_demo_screen.dart              # Main screen logic
+│   └── broker_discovery_screen.dart       # Broker discovery screen
+├── widgets/
+│   ├── device_ip_display.dart             # Device IP display widget
+│   ├── mode_selection.dart                # Mode selection widget
+│   ├── status_cards.dart                  # Status cards widget
+│   ├── broker_section.dart                # Broker controls widget
+│   ├── client_section.dart                # Client controls widget
+│   ├── message_log.dart                   # Message log widget
+│   └── broker_selection_widget.dart       # Broker selection widget
+└── test/
+    └── widget_test.dart                   # Widget tests
 ```
 
 ### Key Classes
 - `MqttService`: Handles all MQTT operations (broker and client)
-- `MqttDemo`: Main UI widget with controls and message display
-- `AppMode`: Enum for switching between broker and client modes
+- `BrokerDiscoveryService`: Network scanning and broker discovery
+- `NetworkHelper`: Network interface detection and IP resolution
+- `MqttDemoScreen`: Main screen with controls and message display
+- `BrokerDiscoveryScreen`: Broker discovery and selection interface
 
 ## Dependencies
 

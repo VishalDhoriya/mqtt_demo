@@ -1,5 +1,15 @@
 name: mqtt_demo
-description: "A new Flutter project."
+description:dependencies:
+  flutter:
+    sdk: flutter
+  mqtt_server: 1.0.0 # Or latest
+
+  # The MQTT Client
+  mqtt_client: ^10.9.1 # Or latest
+
+  # The following adds the Cupertino Icons font to your application.
+  # Use with the CupertinoIcons class for iOS style icons.
+  cupertino_icons: ^1.0.8r project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -34,6 +44,9 @@ dependencies:
 
   # The MQTT Client
   mqtt_client: ^10.9.1 # Or latest
+
+  # mDNS/Bonjour service discovery
+  nsd: ^4.0.2
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
