@@ -138,10 +138,10 @@ class MqttService extends ChangeNotifier {
   
   /// Handle incoming file share messages
   Future<void> _handleFileShareMessage(String message) async {
-    _logger.log('📥 File notification received');
+    _logger.log('📥 Processing share topic message...');
     
     try {
-      // Parse the message as JSON
+      // Try to parse the message as JSON
       final messageJson = jsonDecode(message);
       
       // Check if it's a file notification message
@@ -149,6 +149,7 @@ class MqttService extends ChangeNotifier {
           messageJson.containsKey('type') && 
           messageJson['type'] == 'file_notification') {
         
+        _logger.log('📁 File notification detected, processing...');
         final serverUrl = messageJson['server_url'] as String;
         _logger.log('🔍 Server URL: $serverUrl');
         
@@ -191,10 +192,14 @@ class MqttService extends ChangeNotifier {
           _logger.log('❌ Error fetching file list: $e');
         }
       } else {
-        _logger.log('⚠️ Not a file notification message: ${messageJson['type']}');
+        _logger.log('💬 Regular text message on share topic (not a file notification)');
+        // This is just a regular text message, not a file notification
+        // It will be handled by TopicManager for UI display
       }
     } catch (e) {
-      _logger.log('❌ Error processing file notification: $e');
+      // This is likely a regular text message, not JSON - this is normal
+      _logger.log('💬 Text message on share topic: "$message"');
+      // No error logging needed - regular text messages are expected
     }
     
     notifyListeners();
@@ -428,9 +433,10 @@ class MqttService extends ChangeNotifier {
   void _handleIncomingMessage(String topic, String message) {
     _logger.log('📥 Message received on topic "$topic": $message');
     
-    // Parse message content to extract sender info if possible
+    // Parse message content to extract sender info if possible (for logging/tracking only)
     String senderId = 'unknown';
     String senderName = 'Unknown Device';
+    // Always use the raw message content for TopicManager to ensure raw display
     String actualContent = message;
     
     try {
@@ -442,11 +448,7 @@ class MqttService extends ChangeNotifier {
       if (messageData.containsKey('senderName')) {
         senderName = messageData['senderName'];
       }
-      if (messageData.containsKey('content')) {
-        actualContent = messageData['content'];
-      } else if (messageData.containsKey('message')) {
-        actualContent = messageData['message'];
-      }
+      // NO content extraction - always use raw message for TopicManager display
     } catch (e) {
       // If not JSON, treat the entire message as content
       // Use simple sender identification based on connection state

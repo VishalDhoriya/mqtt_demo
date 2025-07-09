@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
 import 'message_logger.dart';
@@ -331,20 +332,30 @@ class MqttClientManager {
       _onMessageReceived(topic, message);
     }
     
-    // Handle specific topics
+    // Handle specific topics - only process actual file notifications
     if (topic == _shareTopic) {
-      _logger.log('📦 Processing share topic message');
+      _logger.log('📦 Checking if message is a file notification...');
       
       try {
-        // Notify via callback for file share messages
-        if (_onFileShareMessage != null) {
-          _logger.log('📥 File notification received');
-          await _onFileShareMessage!(message);
+        // Only process if it's a valid JSON file notification
+        final messageJson = jsonDecode(message);
+        if (messageJson is Map<String, dynamic> && 
+            messageJson.containsKey('type') && 
+            messageJson['type'] == 'file_notification') {
+          
+          _logger.log('� File notification detected, calling file share handler');
+          // This is actually a file notification, process it
+          if (_onFileShareMessage != null) {
+            await _onFileShareMessage!(message);
+          } else {
+            _logger.log('⚠️ No file share message handler registered');
+          }
         } else {
-          _logger.log('⚠️ No file share message handler registered');
+          _logger.log('💬 Regular text message on share topic, no special processing needed');
         }
       } catch (e) {
-        _logger.log('❌ Error processing file share message: $e');
+        // Not JSON, so it's a regular text message - no special processing needed
+        _logger.log('💬 Text message on share topic, no special processing needed');
       }
     }
   }
