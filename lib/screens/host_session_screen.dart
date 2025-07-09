@@ -6,11 +6,13 @@ import '../widgets/file_share_widget.dart';
 class HostSessionScreen extends StatefulWidget {
   final MqttService mqttService;
   final VoidCallback onBackToHome;
+  final bool showMessageLog;
 
   const HostSessionScreen({
     super.key,
     required this.mqttService,
     required this.onBackToHome,
+    this.showMessageLog = true,
   });
 
   @override
@@ -285,7 +287,7 @@ class _HostSessionScreenState extends State<HostSessionScreen> {
           ),
 
           // Message Controls Section
-          if (widget.mqttService.isBrokerRunning) ...[
+          if (widget.showMessageLog && widget.mqttService.isBrokerRunning) ...[
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
@@ -342,8 +344,10 @@ class _HostSessionScreenState extends State<HostSessionScreen> {
                 ],
               ),
             ),
+          ],
             
-            // File Sharing Section
+          // File Sharing Section (always show when broker is running)
+          if (widget.mqttService.isBrokerRunning) ...[
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
@@ -356,40 +360,42 @@ class _HostSessionScreenState extends State<HostSessionScreen> {
                 ],
               ),
             ),
-
-            // Message Log - Constrained height to prevent overflow
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 20),
-                  Text(
-                    'Message Log',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 16),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      minHeight: 200,
-                      maxHeight: 400,
-                    ),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: MessageLog(
-                        mqttService: widget.mqttService,
-                        scrollController: _scrollController,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                ],
-              ),
-            ),
           ],
+
+          // Message Log - Only show when showMessageLog is true
+          if (widget.showMessageLog && widget.mqttService.isBrokerRunning) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 20),
+                    Text(
+                      'Message Log',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 16),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        minHeight: 200,
+                        maxHeight: 400,
+                      ),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: MessageLog(
+                          mqttService: widget.mqttService,
+                          scrollController: _scrollController,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
+            ],
         ],
       ),
     );

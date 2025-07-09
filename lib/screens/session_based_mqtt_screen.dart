@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import '../services/mqtt_service.dart';
 import '../widgets/compact_device_ip_display.dart';
-import 'host_session_screen.dart';
-import 'join_session_screen.dart';
+import 'navigation_container.dart';
+import 'client_navigation_container.dart';
 
 class SessionBasedMqttScreen extends StatefulWidget {
   const SessionBasedMqttScreen({super.key});
@@ -108,12 +108,12 @@ class _SessionBasedMqttScreenState extends State<SessionBasedMqttScreen> {
           ),
         );
       case SessionState.hosting:
-        return HostSessionScreen(
+        return NavigationContainer(
           mqttService: _mqttService,
           onBackToHome: _navigateToHome,
         );
       case SessionState.joining:
-        return JoinSessionScreen(
+        return ClientNavigationContainer(
           mqttService: _mqttService,
           onBackToHome: _navigateToHome,
         );

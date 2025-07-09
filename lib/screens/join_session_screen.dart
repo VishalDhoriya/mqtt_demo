@@ -9,11 +9,13 @@ import '../widgets/file_download_widget.dart';
 class JoinSessionScreen extends StatefulWidget {
   final MqttService mqttService;
   final VoidCallback onBackToHome;
+  final bool showMessageLog;
 
   const JoinSessionScreen({
     super.key,
     required this.mqttService,
     required this.onBackToHome,
+    this.showMessageLog = true,
   });
 
   @override
@@ -246,7 +248,7 @@ class _JoinSessionScreenState extends State<JoinSessionScreen> {
           ],
 
           // Message Controls (when connected)
-          if (widget.mqttService.isConnected) ...[
+          if (widget.mqttService.isConnected && widget.showMessageLog) ...[
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
@@ -324,13 +326,39 @@ class _JoinSessionScreenState extends State<JoinSessionScreen> {
           ],
 
           // Message Log
-          SizedBox(
-            height: 300,
-            child: MessageLog(
-              mqttService: widget.mqttService,
-              scrollController: _scrollController,
+          if (widget.showMessageLog) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 20),
+                  Text(
+                    'Message Log',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 16),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      minHeight: 300,
+                      maxHeight: 400,
+                    ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: MessageLog(
+                        mqttService: widget.mqttService,
+                        scrollController: _scrollController,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
