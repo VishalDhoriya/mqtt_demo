@@ -8,6 +8,7 @@ import 'device_info_helper.dart';
 class MqttClientManager {
   final MessageLogger _logger;
   final Function()? _onStateChanged;
+  final Function(String topic, String message)? _onMessageReceived;
   
   MqttServerClient? _client;
   bool _isConnected = false;
@@ -18,8 +19,9 @@ class MqttClientManager {
   final String _shareTopic = 'share/topic';
   final Set<String> _subscribedTopics = {};
   
-  MqttClientManager(this._logger, {Function()? onStateChanged}) 
-    : _onStateChanged = onStateChanged;
+  MqttClientManager(this._logger, {Function()? onStateChanged, Function(String topic, String message)? onMessageReceived}) 
+    : _onStateChanged = onStateChanged,
+      _onMessageReceived = onMessageReceived;
   
   /// Get connection status
   bool get isConnected => _isConnected;
@@ -323,6 +325,11 @@ class MqttClientManager {
   Future<void> _processIncomingMessage(String topic, String message) async {
     // Log reception first
     _logger.log('🔍 Processing message from topic: $topic');
+    
+    // Notify the generic message callback first (for TopicManager integration)
+    if (_onMessageReceived != null) {
+      _onMessageReceived(topic, message);
+    }
     
     // Handle specific topics
     if (topic == _shareTopic) {

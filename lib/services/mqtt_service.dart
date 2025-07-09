@@ -9,6 +9,7 @@ import 'client_tracker.dart';
 import 'connected_client.dart';
 import 'file_server_service.dart';
 import 'file_download_service.dart';
+import 'topic_manager.dart';
 
 /// Main MQTT service that orchestrates client and broker operations
 class MqttService extends ChangeNotifier {
@@ -18,6 +19,7 @@ class MqttService extends ChangeNotifier {
   late final ClientTracker _clientTracker;
   late final FileServerService _fileServerService;
   late final FileDownloadService _fileDownloadService;
+  late final TopicManager _topicManager;
   
   // Current mode
   AppMode _currentMode = AppMode.none;
@@ -27,14 +29,22 @@ class MqttService extends ChangeNotifier {
   
   MqttService() {
     _logger = MessageLogger();
-    _clientManager = MqttClientManager(_logger, onStateChanged: notifyListeners);
+    _topicManager = TopicManager();
+    _clientManager = MqttClientManager(_logger, 
+      onStateChanged: notifyListeners,
+      onMessageReceived: _handleIncomingMessage,
+    );
     _clientTracker = ClientTracker(_logger);
-    _brokerManager = MqttBrokerManager(_logger, _clientTracker, onStateChanged: notifyListeners);
+    _brokerManager = MqttBrokerManager(_logger, _clientTracker, 
+      onStateChanged: notifyListeners,
+    );
     _fileServerService = FileServerService(_logger, onStateChanged: notifyListeners);
     _fileDownloadService = FileDownloadService(_logger, onStateChanged: notifyListeners);
     
     // Listen to client tracker changes
     _clientTracker.addListener(notifyListeners);
+    // Listen to topic manager changes
+    _topicManager.addListener(notifyListeners);
   }
   
   // Getters
@@ -52,6 +62,7 @@ class MqttService extends ChangeNotifier {
   String get shareTopic => _clientManager.shareTopic;
   Set<String> get subscribedTopics => _clientManager.subscribedTopics;
   List<FileDownloadTask> get activeDownloads => _fileDownloadService.activeTasks;
+  TopicManager get topicManager => _topicManager;
   
   // Set mode
   void setMode(AppMode mode) {
@@ -85,6 +96,11 @@ class MqttService extends ChangeNotifier {
       _logger.log('✅ Host publishing client connected successfully');
       await _clientManager.subscribe();
       await _clientManager.subscribeToTopic(_clientManager.shareTopic);
+      
+      // Subscribe to system topics so broker host can see connection/disconnection events
+      await _clientManager.subscribeToTopic('client/connect');
+      await _clientManager.subscribeToTopic('client/disconnect');
+      
       _brokerMonitoringClientConnected = true;
     } else {
       _logger.log('❌ Failed to set up host publishing client');
@@ -192,6 +208,10 @@ class MqttService extends ChangeNotifier {
     // Subscribe to both default and share topics
     await _clientManager.subscribe();
     await _clientManager.subscribeToTopic(_clientManager.shareTopic);
+    
+    // Subscribe to system topics so all clients can see connection/disconnection events
+    await _clientManager.subscribeToTopic('client/connect');
+    await _clientManager.subscribeToTopic('client/disconnect');
   }
   
   Future<void> subscribeToTopic(String topic) async {
@@ -201,6 +221,10 @@ class MqttService extends ChangeNotifier {
   Future<void> unsubscribe() async {
     await _clientManager.unsubscribe();
     await _clientManager.unsubscribeFromTopic(_clientManager.shareTopic);
+    
+    // Unsubscribe from system topics
+    await _clientManager.unsubscribeFromTopic('client/connect');
+    await _clientManager.unsubscribeFromTopic('client/disconnect');
   }
   
   Future<void> unsubscribeFromTopic(String topic) async {
@@ -208,13 +232,20 @@ class MqttService extends ChangeNotifier {
   }
   
   Future<void> publishMessage({String? message, String? topic}) async {
-    await _clientManager.publishMessage(message: message, topic: topic);
+    final usedTopic = topic ?? _clientManager.defaultTopic;
+    final usedMessage = message ?? 'Hello, MQTT!';
+    
+    // Send the original message as-is to avoid payload size issues
+    // The sender identification will be handled when the message comes back
+    await _clientManager.publishMessage(message: usedMessage, topic: topic);
+    
+    // Don't add to TopicManager here - wait for the message to come back from broker
+    // This ensures consistent behavior across all devices and prevents duplicates
     
     // If we're running a broker, also log the message as received by broker
     if (_brokerManager.isBrokerRunning) {
-      final usedTopic = topic ?? _clientManager.defaultTopic;
       _logger.log('📨 [BROKER] Message published to topic: $usedTopic');
-      _logger.log('📝 [BROKER] Message content: "${message ?? 'Hello, MQTT!'}"');
+      _logger.log('📝 [BROKER] Message content: "$usedMessage"');
       _logger.log('🔄 [BROKER] Broadcasting to all connected clients...');
     }
   }
@@ -388,8 +419,60 @@ class MqttService extends ChangeNotifier {
     _brokerManager.dispose();
     _fileServerService.dispose();
     _fileDownloadService.dispose();
+    _topicManager.dispose();
     _logger.log('✅ MqttService disposed');
     super.dispose();
+  }
+  
+  /// Handle incoming messages from MQTT
+  void _handleIncomingMessage(String topic, String message) {
+    _logger.log('📥 Message received on topic "$topic": $message');
+    
+    // Parse message content to extract sender info if possible
+    String senderId = 'unknown';
+    String senderName = 'Unknown Device';
+    String actualContent = message;
+    
+    try {
+      // Try to parse as JSON to extract sender info (for structured messages)
+      final Map<String, dynamic> messageData = jsonDecode(message);
+      if (messageData.containsKey('senderId')) {
+        senderId = messageData['senderId'];
+      }
+      if (messageData.containsKey('senderName')) {
+        senderName = messageData['senderName'];
+      }
+      if (messageData.containsKey('content')) {
+        actualContent = messageData['content'];
+      } else if (messageData.containsKey('message')) {
+        actualContent = messageData['message'];
+      }
+    } catch (e) {
+      // If not JSON, treat the entire message as content
+      // Use simple sender identification based on connection state
+      if (isConnected || (_currentMode == AppMode.broker && _brokerMonitoringClientConnected)) {
+        // This could be our own message echoed back, but we'll treat all as external
+        // since we can't reliably distinguish without structured messages
+        senderId = 'device';
+        senderName = 'Connected Device';
+      } else if (_currentMode == AppMode.broker && _clientTracker.connectedClients.isNotEmpty) {
+        // In broker mode, this is from a remote client
+        senderId = 'remote_client';
+        senderName = 'Remote Client';
+      }
+    }
+    
+    // Forward to TopicManager
+    _topicManager.addMessage(
+      topic: topic,
+      content: actualContent,
+      senderId: senderId,
+      senderName: senderName,
+      type: MessageType.user,
+    );
+    
+    // Notify listeners about the new message
+    notifyListeners();
   }
 }
 

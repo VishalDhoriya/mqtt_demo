@@ -200,6 +200,9 @@ class MqttBrokerManager {
     try {
       _logger.log('👥 Processing client connection message: $message on $topic');
       
+      // Don't forward to TopicManager here - it's already handled by normal MQTT subscription
+      // The broker monitoring client is subscribed to these topics like any other client
+      
       if (topic == 'client/connect') {
         // Parse client connection message
         final clientInfo = _clientTracker.parseClientInfo(message);

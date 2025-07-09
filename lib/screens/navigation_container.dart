@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/mqtt_service.dart';
 import 'host_session_screen.dart';
 import 'logs_page.dart';
+import 'topics_page.dart';
 
 class NavigationContainer extends StatefulWidget {
   final MqttService mqttService;
@@ -31,6 +32,9 @@ class _NavigationContainerState extends State<NavigationContainer> {
         showMessageLog: false,
       ),
       LogsPage(
+        mqttService: widget.mqttService,
+      ),
+      TopicsPage(
         mqttService: widget.mqttService,
       ),
     ];
@@ -80,6 +84,11 @@ class _NavigationContainerState extends State<NavigationContainer> {
                   icon: Icon(Icons.chat_bubble_outline),
                   activeIcon: Icon(Icons.chat_bubble),
                   label: 'Messages',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.topic_outlined),
+                  activeIcon: Icon(Icons.topic),
+                  label: 'Topics',
                 ),
               ],
               currentIndex: _selectedIndex,

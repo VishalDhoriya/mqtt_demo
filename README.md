@@ -9,6 +9,7 @@ A Flutter application that demonstrates MQTT broker and client functionality, al
 - **Automatic Broker Discovery**: Find available MQTT brokers on your network automatically
 - **Manual Broker Entry**: Add brokers manually when auto-discovery doesn't find them
 - **Real-time Messaging**: Send and receive messages instantly between devices
+- **Topics Management**: Browse and manage MQTT topics in dedicated rooms
 - **Visual Status Indicators**: Clear visual feedback for connection and subscription status
 - **Message Logging**: View all MQTT activities in real-time
 - **Modular Architecture**: Clean separation of concerns with dedicated services and widgets
@@ -92,6 +93,26 @@ The app uses two main packages:
 - **Real-time Display**: Shows all MQTT activities with timestamps
 - **Auto-scroll**: Automatically scrolls to show newest messages
 - **Clear Button**: Clears the message log
+
+## Topics Feature
+
+The app includes a comprehensive topics management system that allows users to organize and view MQTT messages by topic.
+
+### Key Features
+1. **Topic Discovery**: Automatically discovers all MQTT topics from message activity
+2. **Topic Rooms**: Dedicated chat-like interface for each topic
+3. **Message History**: View all messages published to a specific topic
+4. **Subscription Management**: Subscribe/unsubscribe to topics directly from topic rooms
+5. **Real-time Updates**: Live updates when new messages arrive
+
+### How to Use
+1. **Access Topics**: Tap the "Topics" tab in the bottom navigation
+2. **Browse Topics**: See all discovered topics with message counts and subscription status
+3. **Enter Topic Room**: Tap any topic to view its dedicated message room
+4. **Send Messages**: Publish new messages directly to the topic
+5. **Manage Subscriptions**: Toggle subscription status for real-time updates
+
+For detailed information about the topics feature, see [TOPICS_FEATURE_GUIDE.md](TOPICS_FEATURE_GUIDE.md).
 
 ## Broker Discovery Feature
 

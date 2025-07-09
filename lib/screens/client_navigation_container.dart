@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/mqtt_service.dart';
 import 'join_session_screen.dart';
 import 'logs_page.dart';
+import 'topics_page.dart';
 
 class ClientNavigationContainer extends StatefulWidget {
   final MqttService mqttService;
@@ -31,6 +32,9 @@ class _ClientNavigationContainerState extends State<ClientNavigationContainer> {
         showMessageLog: false,
       ),
       LogsPage(
+        mqttService: widget.mqttService,
+      ),
+      TopicsPage(
         mqttService: widget.mqttService,
       ),
     ];
@@ -80,6 +84,11 @@ class _ClientNavigationContainerState extends State<ClientNavigationContainer> {
                   icon: Icon(Icons.chat_bubble_outline),
                   activeIcon: Icon(Icons.chat_bubble),
                   label: 'Messages',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.topic_outlined),
+                  activeIcon: Icon(Icons.topic),
+                  label: 'Topics',
                 ),
               ],
               currentIndex: _selectedIndex,
