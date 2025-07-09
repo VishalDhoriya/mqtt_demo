@@ -16,7 +16,7 @@ class MessageLog extends StatefulWidget {
 }
 
 class _MessageLogState extends State<MessageLog> with SingleTickerProviderStateMixin {
-  bool _isExpanded = false; // Changed to false to start collapsed
+  bool _isExpanded = true;
   late AnimationController _animationController;
   late Animation<double> _heightFactor;
 
@@ -28,7 +28,7 @@ class _MessageLogState extends State<MessageLog> with SingleTickerProviderStateM
       vsync: this,
     );
     _heightFactor = _animationController.drive(CurveTween(curve: Curves.easeInOutCubic));
-    _animationController.value = 0.0; // Start collapsed (was 1.0)
+    _animationController.value = 1.0; // Start expanded
   }
 
   @override
@@ -124,17 +124,12 @@ class _MessageLogState extends State<MessageLog> with SingleTickerProviderStateM
                 axisAlignment: -1.0,
                 child: FadeTransition(
                   opacity: _animationController,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxHeight: 180.0, // Limit maximum height to prevent overflow
-                    ),
-                    child: child,
-                  ),
+                  child: child,
                 ),
               );
             },
             child: Padding(
-              padding: const EdgeInsets.only(top: 4.0), // Reduced top padding
+              padding: const EdgeInsets.only(top: 8.0),
               child: _buildMessageList(),
             ),
           ),
@@ -146,17 +141,17 @@ class _MessageLogState extends State<MessageLog> with SingleTickerProviderStateM
   Widget _buildMessageList() {
     if (widget.mqttService.messages.isEmpty) {
       return SizedBox(
-        height: 60, // Further reduced height for empty state
+        height: 80, // Reduced height for empty state
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
                 Icons.chat_bubble_outline,
-                size: 20, // Smaller icon
+                size: 24, // Smaller icon
                 color: Colors.grey.shade200,
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 8),
               Text(
                 'No messages yet',
                 style: TextStyle(
@@ -170,19 +165,12 @@ class _MessageLogState extends State<MessageLog> with SingleTickerProviderStateM
         ),
       );
     } else {
-      // Use a container with fixed height and overflow management
-      return Container(
-        height: 120, // Even more reduced height to prevent overflow
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: Colors.grey.shade100, width: 0.5),
-        ),
+      return SizedBox(
+        height: 180, // Fixed height container to prevent overflow
         child: ListView.builder(
           controller: widget.scrollController,
           shrinkWrap: true,
           padding: EdgeInsets.zero,
-          physics: const ClampingScrollPhysics(), // Prevents bounce
           itemCount: widget.mqttService.messages.length,
           itemBuilder: (context, index) {
             final message = widget.mqttService.messages[index];
@@ -212,22 +200,21 @@ class _MessageLogState extends State<MessageLog> with SingleTickerProviderStateM
                 if (index > 0)
                   Divider(
                     height: 1,
-                    thickness: 0.5, // Thinner divider
                     indent: 12,
                     endIndent: 12,
-                    color: Colors.grey.shade50, // Lighter color
+                    color: Colors.grey.shade100,
                   ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), // Reduced vertical padding
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (metadata != null) 
                         Padding(
-                          padding: const EdgeInsets.only(bottom: 2.0), // Reduced padding
+                          padding: const EdgeInsets.only(bottom: 4.0),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1), // Smaller container
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: Colors.grey.shade100,
                               borderRadius: BorderRadius.circular(4),
@@ -235,7 +222,7 @@ class _MessageLogState extends State<MessageLog> with SingleTickerProviderStateM
                             child: Text(
                               metadata,
                               style: TextStyle(
-                                fontSize: 9, // Smaller font
+                                fontSize: 10,
                                 fontWeight: FontWeight.w500,
                                 color: Colors.grey.shade700,
                               ),
@@ -257,15 +244,13 @@ class _MessageLogState extends State<MessageLog> with SingleTickerProviderStateM
                             child: Text(
                               messageText.trim(),
                               style: TextStyle(
-                                fontSize: 12, // Smaller font size
+                                fontSize: 13,
                                 fontFamily: 'monospace',
                                 color: Colors.grey.shade800,
-                                height: 1.3, // Reduced line height
-                                letterSpacing: 0.1, // Reduced letter spacing
+                                height: 1.5,
+                                letterSpacing: 0.2,
                               ),
                               softWrap: true,
-                              overflow: TextOverflow.ellipsis, // Add ellipsis for long text
-                              maxLines: 3, // Limit maximum lines
                             ),
                           ),
                         ],

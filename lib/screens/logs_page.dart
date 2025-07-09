@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/mqtt_service.dart';
-import '../widgets/message_log.dart';
+import '../widgets/collapsible_message_section.dart';
 
 class LogsPage extends StatefulWidget {
   final MqttService mqttService;
@@ -76,73 +76,20 @@ class _LogsPageState extends State<LogsPage> {
         children: [
           if (widget.mqttService.isBrokerRunning || widget.mqttService.isConnected) ...[
             const SizedBox(height: 20),
-            Text(
-              'Send Message',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            // Topic Selection
-            Row(
-              children: [
-                const Text('Topic:', style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(width: 10),
-                DropdownButton<String>(
-                  value: _selectedTopic,
-                  items: [
-                    widget.mqttService.defaultTopic,
-                    widget.mqttService.shareTopic,
-                  ].map((String topic) {
-                    return DropdownMenuItem<String>(
-                      value: topic,
-                      child: Text(topic),
-                    );
-                  }).toList(),
-                  onChanged: _onTopicChanged,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    decoration: const InputDecoration(
-                      hintText: 'Enter your message...',
-                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    ),
-                    onSubmitted: (_) => _publishMessage(),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                ElevatedButton(
-                  onPressed: _publishMessage,
-                  child: const Text('Send'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            const Divider(height: 1),
-            const SizedBox(height: 20),
-            Text(
-              'Message Log',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            // Message Log takes remaining space
             Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: MessageLog(
-                  mqttService: widget.mqttService,
-                  scrollController: _scrollController,
-                ),
+              child: CollapsibleMessageSection(
+                mqttService: widget.mqttService,
+                scrollController: _scrollController,
+                messageController: _messageController,
+                onSend: _publishMessage,
+                availableTopics: [
+                  widget.mqttService.defaultTopic,
+                  widget.mqttService.shareTopic,
+                ],
+                selectedTopic: _selectedTopic,
+                onTopicChanged: _onTopicChanged,
               ),
             ),
-            const SizedBox(height: 20),
           ],
         ],
       ),

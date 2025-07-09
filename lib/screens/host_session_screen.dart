@@ -370,25 +370,34 @@ class _HostSessionScreenState extends State<HostSessionScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 20),
-                    Text(
-                      'Message Log',
-                      style: Theme.of(context).textTheme.titleLarge,
+                    // Header with Clear button
+                    Row(
+                      children: [
+                        Text(
+                          'Message Log',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          onPressed: widget.mqttService.clearMessages,
+                          icon: const Icon(Icons.delete_outline, size: 20),
+                          tooltip: 'Clear messages',
+                          style: IconButton.styleFrom(
+                            foregroundColor: Colors.grey.shade700,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 16),
+                    // Message Log without border
                     ConstrainedBox(
                       constraints: const BoxConstraints(
                         minHeight: 200,
                         maxHeight: 400,
                       ),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: MessageLog(
-                          mqttService: widget.mqttService,
-                          scrollController: _scrollController,
-                        ),
+                      child: MessageLog(
+                        mqttService: widget.mqttService,
+                        scrollController: _scrollController,
                       ),
                     ),
                     const SizedBox(height: 20),
