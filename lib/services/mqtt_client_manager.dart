@@ -15,6 +15,8 @@ class MqttClientManager {
   String _brokerIp = '';
   String _clientId = 'flutter_client_${DateTime.now().millisecondsSinceEpoch}';
   final String _defaultTopic = 'test/topic';
+  final String _shareTopic = 'share/topic';
+  final Set<String> _subscribedTopics = {};
   
   MqttClientManager(this._logger, {Function()? onStateChanged}) 
     : _onStateChanged = onStateChanged;
@@ -28,6 +30,15 @@ class MqttClientManager {
   /// Get broker IP
   String get brokerIp => _brokerIp;
   
+  /// Get the default topic
+  String get defaultTopic => _defaultTopic;
+  
+  /// Get the share topic
+  String get shareTopic => _shareTopic;
+  
+  /// Get list of subscribed topics
+  Set<String> get subscribedTopics => _subscribedTopics;
+
   /// Connect to MQTT broker
   Future<bool> connect(String brokerIp) async {
     _logger.log('🔌 Attempting to connect to MQTT broker...');
@@ -54,12 +65,16 @@ class MqttClientManager {
       // Configure client settings
       _logger.log('⚙️  Configuring client settings');
       _client!.logging(on: true);
-      _client!.keepAlivePeriod = 30;
+      _client!.keepAlivePeriod = 60; // Increased from 30 to 60 seconds for longer timeout
       _client!.onDisconnected = _onDisconnected;
       _client!.onConnected = _onConnected;
       _client!.onSubscribed = _onSubscribed;
       _client!.onUnsubscribed = _onUnsubscribed;
       _client!.setProtocolV311();
+      _client!.autoReconnect = true; // Enable auto-reconnect
+      
+      // Set ping response handling
+      _client!.keepAlivePeriod = 60; // Increased timeout
       
       // Create connection message
       _logger.log('📝 Creating connection message');
@@ -86,12 +101,15 @@ class MqttClientManager {
         
         // Set up message listener
         _logger.log('👂 Setting up message listener');
-        _client!.updates!.listen((List<MqttReceivedMessage<MqttMessage?>>? messages) {
+        _client!.updates!.listen((List<MqttReceivedMessage<MqttMessage?>>? messages) async {
           if (messages != null && messages.isNotEmpty) {
             final recMess = messages[0].payload as MqttPublishMessage;
             final message = MqttPublishPayload.bytesToStringAsString(recMess.payload.message);
             final topic = messages[0].topic;
             _logger.log('📨 Received message: "$message" from topic: $topic');
+            
+            // Process message based on topic
+            await _processIncomingMessage(topic, message);
           }
         });
         
@@ -139,12 +157,19 @@ class MqttClientManager {
   
   /// Subscribe to default topic
   Future<void> subscribe() async {
-    _logger.log('📡 Attempting to subscribe to topic: $_defaultTopic');
+    await subscribeToTopic(_defaultTopic);
+  }
+  
+  /// Subscribe to a specific topic
+  Future<void> subscribeToTopic(String topic) async {
+    _logger.log('📡 Attempting to subscribe to topic: $topic');
     try {
       if (_client != null && _isConnected) {
         _logger.log('✅ Client is connected, proceeding with subscription');
-        _logger.log('🎯 Subscribing to topic: $_defaultTopic with QoS: atMostOnce');
-        _client!.subscribe(_defaultTopic, MqttQos.atMostOnce);
+        _logger.log('🎯 Subscribing to topic: $topic with QoS: atMostOnce');
+        _client!.subscribe(topic, MqttQos.atMostOnce);
+        _subscribedTopics.add(topic);
+        _isSubscribed = true;
         _logger.log('📬 Subscription request sent');
       } else {
         _logger.log('❌ Cannot subscribe - client not connected');
@@ -159,11 +184,20 @@ class MqttClientManager {
   
   /// Unsubscribe from default topic
   Future<void> unsubscribe() async {
-    _logger.log('📡 Attempting to unsubscribe from topic: $_defaultTopic');
+    await unsubscribeFromTopic(_defaultTopic);
+  }
+  
+  /// Unsubscribe from a specific topic
+  Future<void> unsubscribeFromTopic(String topic) async {
+    _logger.log('📡 Attempting to unsubscribe from topic: $topic');
     try {
       if (_client != null && _isConnected) {
         _logger.log('✅ Client is connected, proceeding with unsubscription');
-        _client!.unsubscribe(_defaultTopic);
+        _client!.unsubscribe(topic);
+        _subscribedTopics.remove(topic);
+        if (_subscribedTopics.isEmpty) {
+          _isSubscribed = false;
+        }
         _logger.log('📭 Unsubscription request sent');
       } else {
         _logger.log('❌ Cannot unsubscribe - client not connected');
@@ -181,12 +215,20 @@ class MqttClientManager {
     
     _logger.log('📤 Publishing message...');
     _logger.log('📍 Topic: $pubTopic');
-    _logger.log('📝 Message: "$msg"');
+    
+    // Don't log large messages completely to avoid terminal spam
+    final truncatedMessage = msg.length > 100 ? '${msg.substring(0, 100)}...' : msg;
+    _logger.log('📝 Message: "$truncatedMessage"');
     _logger.log('🎯 QoS: atMostOnce');
     
     try {
       if (_client != null && _isConnected) {
         _logger.log('✅ Client is connected, proceeding with publish');
+        
+        // Check message size to avoid MQTT protocol limits
+        if (msg.length > 1024) {
+          _logger.log('⚠️ Message size (${msg.length} bytes) is large, may exceed broker limits');
+        }
         
         // Create payload
         final builder = MqttClientPayloadBuilder();
@@ -275,6 +317,38 @@ class MqttClientManager {
     } catch (e) {
       _logger.log('❌ Error sending disconnection notification: $e');
     }
+  }
+  
+  /// Process incoming MQTT messages
+  Future<void> _processIncomingMessage(String topic, String message) async {
+    // Log reception first
+    _logger.log('🔍 Processing message from topic: $topic');
+    
+    // Handle specific topics
+    if (topic == _shareTopic) {
+      _logger.log('📦 Processing share topic message');
+      
+      try {
+        // Notify via callback for file share messages
+        if (_onFileShareMessage != null) {
+          _logger.log('📥 File notification received');
+          await _onFileShareMessage!(message);
+        } else {
+          _logger.log('⚠️ No file share message handler registered');
+        }
+      } catch (e) {
+        _logger.log('❌ Error processing file share message: $e');
+      }
+    }
+  }
+  
+  // File share message callback
+  Function(String)? _onFileShareMessage;
+  
+  /// Set callback for file share messages
+  void setFileShareMessageHandler(Function(String) callback) {
+    _onFileShareMessage = callback;
+    _logger.log('✅ File share message handler registered');
   }
   
   /// Clean up resources

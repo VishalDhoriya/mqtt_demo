@@ -4,6 +4,7 @@ import '../services/network_helper.dart';
 import '../services/broker_discovery_service.dart';
 import '../widgets/broker_selection_widget.dart';
 import '../widgets/message_log.dart';
+import '../widgets/file_download_widget.dart';
 
 class JoinSessionScreen extends StatefulWidget {
   final MqttService mqttService;
@@ -25,12 +26,14 @@ class _JoinSessionScreenState extends State<JoinSessionScreen> {
   final ScrollController _scrollController = ScrollController();
   final BrokerDiscoveryService _discoveryService = BrokerDiscoveryService();
   bool _isConnecting = false;
+  String _selectedTopic = '';
 
   @override
   void initState() {
     super.initState();
     _brokerIpController.text = '192.168.1.105'; // Default IP
     _messageController.text = 'Hello from client!';
+    _selectedTopic = widget.mqttService.defaultTopic; // Initialize with default topic
     widget.mqttService.addListener(_onMqttServiceChanged);
     widget.mqttService.setMode(AppMode.client);
   }
@@ -113,7 +116,15 @@ class _JoinSessionScreenState extends State<JoinSessionScreen> {
 
   Future<void> _publishMessage() async {
     final message = _messageController.text;
-    await widget.mqttService.publishMessage(message: message);
+    await widget.mqttService.publishMessage(message: message, topic: _selectedTopic);
+  }
+
+  void _onTopicChanged(String? newTopic) {
+    if (newTopic != null) {
+      setState(() {
+        _selectedTopic = newTopic;
+      });
+    }
   }
 
   @override
@@ -248,6 +259,27 @@ class _JoinSessionScreenState extends State<JoinSessionScreen> {
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 16),
+                  // Topic Selection
+                  Row(
+                    children: [
+                      const Text('Topic:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(width: 10),
+                      DropdownButton<String>(
+                        value: _selectedTopic,
+                        items: [
+                          widget.mqttService.defaultTopic,
+                          widget.mqttService.shareTopic,
+                        ].map((String topic) {
+                          return DropdownMenuItem<String>(
+                            value: topic,
+                            child: Text(topic),
+                          );
+                        }).toList(),
+                        onChanged: _onTopicChanged,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
                   Row(
                     children: [
                       Expanded(
@@ -267,6 +299,23 @@ class _JoinSessionScreenState extends State<JoinSessionScreen> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 20),
+                  const Divider(height: 1),
+                ],
+              ),
+            ),
+          ],
+
+          // File Downloads Section (when connected)
+          if (widget.mqttService.isConnected) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Divider(height: 1),
+                  const SizedBox(height: 20),
+                  FileDownloadWidget(mqttService: widget.mqttService),
                   const SizedBox(height: 20),
                   const Divider(height: 1),
                 ],

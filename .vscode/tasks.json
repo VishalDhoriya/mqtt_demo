@@ -1,0 +1,13 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run MQTT Demo",
+			"type": "shell",
+			"command": "cd \"c:\\Users\\Vishal\\Desktop\\flutter selc\\mqtt_demo\" && flutter run",
+			"group": "build",
+			"isBackground": true,
+			"problemMatcher": []
+		}
+	]
+}

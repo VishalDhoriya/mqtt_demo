@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/mqtt_service.dart';
 import '../widgets/message_log.dart';
+import '../widgets/file_share_widget.dart';
 
 class HostSessionScreen extends StatefulWidget {
   final MqttService mqttService;
@@ -18,12 +19,16 @@ class HostSessionScreen extends StatefulWidget {
 
 class _HostSessionScreenState extends State<HostSessionScreen> {
   final ScrollController _scrollController = ScrollController();
+  final TextEditingController _messageController = TextEditingController();
   bool _isStarting = false;
+  String _selectedTopic = ''; // Will be initialized in initState
 
   @override
   void initState() {
     super.initState();
     widget.mqttService.addListener(_onMqttServiceChanged);
+    _messageController.text = 'Hello from host!';
+    _selectedTopic = widget.mqttService.defaultTopic; // Initialize with default topic
     _startHosting();
   }
 
@@ -31,6 +36,7 @@ class _HostSessionScreenState extends State<HostSessionScreen> {
   void dispose() {
     widget.mqttService.removeListener(_onMqttServiceChanged);
     _scrollController.dispose();
+    _messageController.dispose();
     super.dispose();
   }
 
@@ -79,6 +85,19 @@ class _HostSessionScreenState extends State<HostSessionScreen> {
   Future<void> _stopHosting() async {
     await widget.mqttService.stopBroker();
     widget.onBackToHome();
+  }
+
+  Future<void> _publishMessage() async {
+    final message = _messageController.text;
+    await widget.mqttService.publishMessage(message: message, topic: _selectedTopic);
+  }
+
+  void _onTopicChanged(String? newTopic) {
+    if (newTopic != null) {
+      setState(() {
+        _selectedTopic = newTopic;
+      });
+    }
   }
 
   @override
@@ -255,6 +274,84 @@ class _HostSessionScreenState extends State<HostSessionScreen> {
             ],
           ),
         ),
+
+        // Message Controls Section
+        if (widget.mqttService.isBrokerRunning) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Divider(height: 1),
+                const SizedBox(height: 20),
+                Text(
+                  'Send Message',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 16),
+                // Topic Selection
+                Row(
+                  children: [
+                    const Text('Topic:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(width: 10),
+                    DropdownButton<String>(
+                      value: _selectedTopic,
+                      items: [
+                        widget.mqttService.defaultTopic,
+                        widget.mqttService.shareTopic,
+                      ].map((String topic) {
+                        return DropdownMenuItem<String>(
+                          value: topic,
+                          child: Text(topic),
+                        );
+                      }).toList(),
+                      onChanged: _onTopicChanged,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _messageController,
+                        decoration: const InputDecoration(
+                          hintText: 'Enter your message...',
+                          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        ),
+                        onSubmitted: (_) => _publishMessage(),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: _publishMessage,
+                      child: const Text('Send'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                const Divider(height: 1),
+              ],
+            ),
+          ),
+          
+          // File Sharing Section
+          if (widget.mqttService.isBrokerRunning) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Divider(height: 1),
+                  const SizedBox(height: 20),
+                  FileShareWidget(mqttService: widget.mqttService),
+                  const SizedBox(height: 20),
+                  const Divider(height: 1),
+                ],
+              ),
+            ),
+          ],
+        ],
 
         // Message Log
         Expanded(
