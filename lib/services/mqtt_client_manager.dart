@@ -4,6 +4,7 @@ import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
 import 'message_logger.dart';
 import 'device_info_helper.dart';
+import 'network_helper.dart';
 
 /// Manages MQTT client connections and operations
 class MqttClientManager {
@@ -50,9 +51,10 @@ class MqttClientManager {
     try {
       _brokerIp = brokerIp;
       
-      // Generate client ID with device name and IP
+      // Generate client ID with device name and device IP and broker IP
       final deviceName = await DeviceInfoHelper.getDeviceName() ?? 'Unknown';
-      _clientId = 'mqtt_client_${deviceName}_${brokerIp.replaceAll('.', '-')}';
+      final deviceIp = await NetworkHelper.getDeviceIPAddress() ?? 'unknown';
+      _clientId = 'mqtt_client_${deviceName}_${brokerIp.replaceAll('.', '-')}_${deviceIp.replaceAll('.', '-')}';
       _logger.log('👤 Client ID: $_clientId');
       
       // Disconnect existing client if connected
