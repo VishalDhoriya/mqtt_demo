@@ -17,6 +17,8 @@ class FileShareWidget extends StatefulWidget {
 
 class _FileShareWidgetState extends State<FileShareWidget> {
   bool _isSharing = false;
+  String _selectedTargetType = 'all'; // 'all' or 'specific'
+  String? _selectedClientIp;
   
   Future<void> _pickAndShareFile() async {
     if (!mounted) return;
@@ -60,7 +62,15 @@ class _FileShareWidgetState extends State<FileShareWidget> {
           }
           
           // Share the file
-          final success = await widget.mqttService.shareFile(file);
+          String? targetIp;
+          if (_selectedTargetType == 'specific' && _selectedClientIp != null) {
+            targetIp = _selectedClientIp;
+            debugPrint('🎯 Sharing file with specific client: $targetIp');
+          } else {
+            debugPrint('📢 Sharing file with all clients');
+          }
+          
+          final success = await widget.mqttService.shareFile(file, targetIp: targetIp);
           
           if (!mounted) return;
           
@@ -132,43 +142,151 @@ class _FileShareWidgetState extends State<FileShareWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Share Files',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
+    final connectedClients = widget.mqttService.connectedClients;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.upload_file, color: Colors.black, size: 22),
+              const SizedBox(width: 8),
+              Text(
+                'Share Files',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
           ),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Share files with all connected participants',
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.grey,
+          const SizedBox(height: 6),
+          Text(
+            'Send files to participants',
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.black54,
+            ),
           ),
-        ),
-        const SizedBox(height: 16),
-        ElevatedButton.icon(
-          onPressed: _isSharing ? null : _pickAndShareFile,
-          icon: _isSharing 
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                )
-              : const Icon(Icons.file_upload),
-          label: Text(_isSharing ? 'Sharing...' : 'Select & Share File'),
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          const Divider(height: 24, thickness: 0.7, color: Colors.black12),
+          Text(
+            'Share with:',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Colors.black,
+            ),
           ),
-        ),
-      ],
+          const SizedBox(height: 8),
+          RadioListTile<String>(
+            title: const Text('All participants', style: TextStyle(color: Colors.black)),
+            value: 'all',
+            groupValue: _selectedTargetType,
+            onChanged: (value) {
+              setState(() {
+                _selectedTargetType = value!;
+                _selectedClientIp = null;
+              });
+            },
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            activeColor: Colors.black,
+          ),
+          RadioListTile<String>(
+            title: const Text('Specific participant', style: TextStyle(color: Colors.black)),
+            value: 'specific',
+            groupValue: _selectedTargetType,
+            onChanged: connectedClients.isEmpty ? null : (value) {
+              setState(() {
+                _selectedTargetType = value!;
+                if (_selectedClientIp == null && connectedClients.isNotEmpty) {
+                  _selectedClientIp = connectedClients.first.ipAddress;
+                }
+              });
+            },
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            activeColor: Colors.black,
+          ),
+          if (_selectedTargetType == 'specific') ...[
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.only(left: 16),
+              child: connectedClients.isEmpty
+                  ? const Text(
+                      'No connected clients available',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.black38,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    )
+                  : DropdownButton<String>(
+                      value: _selectedClientIp,
+                      hint: const Text('Select client', style: TextStyle(color: Colors.black54)),
+                      isExpanded: true,
+                      dropdownColor: Colors.white,
+                      items: connectedClients.map((client) {
+                        return DropdownMenuItem<String>(
+                          value: client.ipAddress,
+                          child: Text(
+                            '${client.deviceName} (${client.ipAddress})',
+                            style: const TextStyle(fontSize: 13, color: Colors.black),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedClientIp = value;
+                        });
+                      },
+                    ),
+            ),
+          ],
+          const SizedBox(height: 18),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _isSharing ||
+                      (_selectedTargetType == 'specific' &&
+                          (connectedClients.isEmpty || _selectedClientIp == null))
+                  ? null
+                  : _pickAndShareFile,
+              icon: _isSharing
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Icon(Icons.file_upload, color: Colors.white),
+              label: Text(
+                _isSharing ? 'Sharing...' : 'Select & Share File',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                elevation: 0,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

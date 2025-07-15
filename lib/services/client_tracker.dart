@@ -49,20 +49,21 @@ class ClientTracker extends ChangeNotifier {
   }
   
   /// Try to extract device name and IP from client ID
-  /// Expected format: "mqtt_client_DeviceName_IP"
+  /// Expected format: "mqtt_client_DeviceName_BrokerIP_DeviceIP"
   ConnectedClient? parseClientInfo(String clientId) {
     try {
-      // Try to parse client ID in format: mqtt_client_DeviceName_IP
+      // Try to parse client ID in format: mqtt_client_DeviceName_BrokerIP_DeviceIP
       if (clientId.startsWith('mqtt_client_')) {
         final parts = clientId.split('_');
-        if (parts.length >= 4) {
+        if (parts.length >= 5) {
           final deviceName = parts[2];
-          final ipAddress = parts[3];
+          // Convert dashes back to dots for device IP address (parts[4])
+          final deviceIp = parts[4].replaceAll('-', '.');
           
           return ConnectedClient(
             clientId: clientId,
             deviceName: deviceName,
-            ipAddress: ipAddress,
+            ipAddress: deviceIp,
             connectedAt: DateTime.now(),
           );
         }

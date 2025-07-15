@@ -34,6 +34,9 @@ class MqttClientManager {
   /// Get broker IP
   String get brokerIp => _brokerIp;
   
+  /// Get client ID
+  String get clientId => _clientId;
+  
   /// Get the default topic
   String get defaultTopic => _defaultTopic;
   

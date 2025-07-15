@@ -10,6 +10,7 @@ import 'connected_client.dart';
 import 'file_server_service.dart';
 import 'file_download_service.dart';
 import 'topic_manager.dart';
+import 'network_helper.dart';
 
 /// Main MQTT service that orchestrates client and broker operations
 class MqttService extends ChangeNotifier {
@@ -150,6 +151,30 @@ class MqttService extends ChangeNotifier {
           messageJson['type'] == 'file_notification') {
         
         _logger.log('📁 File notification detected, processing...');
+        
+        // Check if this file is targeted to this client
+        if (messageJson.containsKey('target_ids')) {
+          final targetIds = messageJson['target_ids'] as String;
+          _logger.log('🎯 Target IDs: $targetIds');
+          
+          if (targetIds != 'all') {
+            // Get current device IP
+            final currentIp = await NetworkHelper.getDeviceIPAddress();
+            _logger.log('🔍 Current device IP: $currentIp');
+            
+            if (currentIp != targetIds) {
+              _logger.log('⏭️ File not targeted to this device, skipping download');
+              return;
+            } else {
+              _logger.log('✅ File is targeted to this device, proceeding with download');
+            }
+          } else {
+            _logger.log('📢 File shared with all clients, proceeding with download');
+          }
+        } else {
+          _logger.log('📢 No target specified, treating as broadcast to all clients');
+        }
+        
         final serverUrl = messageJson['server_url'] as String;
         _logger.log('🔍 Server URL: $serverUrl');
         
@@ -257,8 +282,8 @@ class MqttService extends ChangeNotifier {
   
   // File sharing functionality
   
-  /// Share a file with all connected clients
-  Future<bool> shareFile(File file) async {
+  /// Share a file with all connected clients or specific target IP
+  Future<bool> shareFile(File file, {String? targetIp}) async {
     if (!isFileServerRunning) {
       _logger.log('❌ Cannot share file - file server not running');
       return false;
@@ -274,12 +299,21 @@ class MqttService extends ChangeNotifier {
         
         _logger.log('🌐 Using network-accessible server URL for notification: $networkServerUrl');
         
+        // Determine target for file sharing
+        final targetIds = targetIp ?? 'all';
+        
+        if (targetIds == 'all') {
+          _logger.log('📢 File sharing broadcast to all clients');
+        } else {
+          _logger.log('🎯 File sharing targeted to IP: $targetIds');
+        }
+        
         // Create a minimal notification - ONLY sending notification
         // No file metadata through MQTT to avoid broker size limits
         final notification = {
           'type': 'file_notification',
-          'message': 'New file available',
           'server_url': networkServerUrl,
+          'target_ids': targetIds,
         };
         
         // Convert notification to JSON

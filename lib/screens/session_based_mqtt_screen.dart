@@ -30,11 +30,17 @@ class _SessionBasedMqttScreenState extends State<SessionBasedMqttScreen> {
     _logUI('🎬 Initializing Session-Based MQTT Demo App');
     _mqttService.addListener(_onMqttServiceChanged);
   }
-
   void _onMqttServiceChanged() {
-    _logUI('📊 MQTT Service state changed - updating UI');
-    setState(() {});
-  }
+  _logUI('📊 MQTT Service state changed - updating UI');
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (mounted) setState(() {});
+  });
+}
+
+  // void _onMqttServiceChanged() {
+  //   _logUI('📊 MQTT Service state changed - updating UI');
+  //   setState(() {});
+  // }
 
   @override
   void dispose() {

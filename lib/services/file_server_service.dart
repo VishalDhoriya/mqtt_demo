@@ -128,6 +128,8 @@ class FileServerService {
   
   /// Share a file and get a unique URL for it
   Future<FileShareInfo?> shareFile(File file) async {
+    // Clear previous shared files so only the latest file is available
+    _sharedFiles.clear();
     if (!_isServerRunning) {
       _logger.log('❌ Cannot share file - server not running');
       return null;
