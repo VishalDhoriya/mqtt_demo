@@ -235,7 +235,7 @@ class _HostSessionScreenState extends State<HostSessionScreen> {
                   )
                 else
                   ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 150),
+                    constraints: const BoxConstraints(maxHeight: 550),
                     child: SingleChildScrollView(
                       child: Column(
                         children: widget.mqttService.connectedClients.map((client) {
