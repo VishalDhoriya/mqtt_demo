@@ -112,8 +112,8 @@ class _JoinSessionScreenState extends State<JoinSessionScreen> {
   }
 
   Future<void> _disconnect() async {
-    await widget.mqttService.disconnect();
-    widget.onBackToHome();
+  await widget.mqttService.disconnect();
+  widget.onBackToHome();
   }
 
   Future<void> _publishMessage() async {

@@ -27,6 +27,12 @@ class PerformanceData {
 
 /// A singleton service that is now lifecycle-aware and uses a dynamic clock speed.
 class PerformanceService with WidgetsBindingObserver {
+  // --- Metric Getters for external use ---
+  double get cpuUsage => notifier.value.cpuUsage;
+  double get memoryUsage => notifier.value.memoryUsage;
+  String get networkUsage => notifier.value.networkUsage;
+  String get diskUsage => notifier.value.diskUsage;
+  String get batteryLevel => notifier.value.batteryLevel;
   // --- Singleton Setup ---
   PerformanceService._privateConstructor() {
     init();

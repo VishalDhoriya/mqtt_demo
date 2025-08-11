@@ -11,6 +11,8 @@ import 'file_server_service.dart';
 import 'file_download_service.dart';
 import 'topic_manager.dart';
 import 'network_helper.dart';
+import 'client_metrics_publisher.dart';
+import 'performance_service.dart';
 
 /// Main MQTT service that orchestrates client and broker operations
 class MqttService extends ChangeNotifier {
@@ -21,12 +23,16 @@ class MqttService extends ChangeNotifier {
   late final FileServerService _fileServerService;
   late final FileDownloadService _fileDownloadService;
   late final TopicManager _topicManager;
+  ClientMetricsPublisher? _clientMetricsPublisher;
   
   // Current mode
   AppMode _currentMode = AppMode.none;
   
   // Flag to track if a monitoring client is connected when in broker mode
   bool _brokerMonitoringClientConnected = false;
+  
+  // Multiple message listeners for different topics/components
+  final Map<String, List<Function(String topic, String message)>> _messageListeners = {};
   
   MqttService() {
     _logger = MessageLogger();
@@ -49,6 +55,7 @@ class MqttService extends ChangeNotifier {
   }
   
   // Getters
+  MqttClientManager get clientManager => _clientManager;
   bool get isConnected => _clientManager.isConnected;
   bool get isSubscribed => _clientManager.isSubscribed;
   bool get isBrokerRunning => _brokerManager.isBrokerRunning;
@@ -70,6 +77,45 @@ class MqttService extends ChangeNotifier {
     _logger.log('Setting mode to: $mode');
     _currentMode = mode;
     notifyListeners();
+  }
+  
+  // Message listener management
+  void addMessageListener(String topic, Function(String topic, String message) listener) {
+    if (!_messageListeners.containsKey(topic)) {
+      _messageListeners[topic] = [];
+    }
+    _messageListeners[topic]!.add(listener);
+    _logger.log('📡 Added message listener for topic: $topic');
+  }
+  
+  void removeMessageListener(String topic, Function(String topic, String message) listener) {
+    if (_messageListeners.containsKey(topic)) {
+      _messageListeners[topic]!.remove(listener);
+      if (_messageListeners[topic]!.isEmpty) {
+        _messageListeners.remove(topic);
+      }
+      _logger.log('📡 Removed message listener for topic: $topic');
+    }
+  }
+  
+  // Client metrics publishing management
+  void startClientMetricsPublishing() {
+    if (_currentMode == AppMode.client && isConnected) {
+      _clientMetricsPublisher?.stop(); // Stop any existing publisher
+      _clientMetricsPublisher = ClientMetricsPublisher(
+        mqttClientManager: _clientManager,
+        performanceService: PerformanceService.instance,
+        interval: const Duration(seconds: 5),
+      );
+      _clientMetricsPublisher!.start();
+      _logger.log('📊 Client metrics publishing started');
+    }
+  }
+  
+  void stopClientMetricsPublishing() {
+    _clientMetricsPublisher?.stop();
+    _clientMetricsPublisher = null;
+    _logger.log('📊 Client metrics publishing stopped');
   }
   
   // MQTT Broker functionality
@@ -102,6 +148,9 @@ class MqttService extends ChangeNotifier {
       await _clientManager.subscribeToTopic('client/connect');
       await _clientManager.subscribeToTopic('client/disconnect');
       
+      // Subscribe to clients/metrics to see metrics from connected clients
+      await _clientManager.subscribeToTopic('clients/metrics');
+      
       _brokerMonitoringClientConnected = true;
     } else {
       _logger.log('❌ Failed to set up host publishing client');
@@ -132,6 +181,9 @@ class MqttService extends ChangeNotifier {
       // Register handler for file share messages
       _clientManager.setFileShareMessageHandler(_handleFileShareMessage);
       _logger.log('🔧 File share message handler registered');
+      
+      // Start client metrics publishing
+      startClientMetricsPublishing();
     }
     
     return success;
@@ -231,6 +283,8 @@ class MqttService extends ChangeNotifier {
   }
   
   Future<void> disconnect() async {
+    // Stop client metrics publishing
+    stopClientMetricsPublishing();
     await _clientManager.disconnect();
   }
   
@@ -242,6 +296,9 @@ class MqttService extends ChangeNotifier {
     // Subscribe to system topics so all clients can see connection/disconnection events
     await _clientManager.subscribeToTopic('client/connect');
     await _clientManager.subscribeToTopic('client/disconnect');
+    
+    // Subscribe to clients/metrics (important for analytics dashboard)
+    await _clientManager.subscribeToTopic('clients/metrics');
   }
   
   Future<void> subscribeToTopic(String topic) async {
@@ -506,6 +563,17 @@ class MqttService extends ChangeNotifier {
       senderName: senderName,
       type: MessageType.user,
     );
+    
+    // Notify specific message listeners for this topic
+    if (_messageListeners.containsKey(topic)) {
+      for (final listener in _messageListeners[topic]!) {
+        try {
+          listener(topic, message);
+        } catch (e) {
+          _logger.log('❌ Error in message listener for topic $topic: $e');
+        }
+      }
+    }
     
     // Notify listeners about the new message
     notifyListeners();

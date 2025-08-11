@@ -38,7 +38,7 @@ class _NavigationContainerState extends State<NavigationContainer> {
       TopicsPage(
         mqttService: widget.mqttService,
       ),
-      const AnalyticsPage(),
+      AnalyticsPage(mqttService: widget.mqttService),
     ];
   }
 

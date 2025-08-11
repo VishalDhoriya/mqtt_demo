@@ -1,3 +1,4 @@
+import '../screens/client_metrics_list.dart';
 import 'dart:async';
 import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
@@ -7,12 +8,14 @@ import 'package:path/path.dart' as p;
 
 // Import your service file
 import '../services/performance_service.dart';
+import '../services/mqtt_service.dart';
 
 // ===========================================================================
 // Main Page Widget (No Changes)
 // ===========================================================================
 class AnalyticsPage extends StatefulWidget {
-  const AnalyticsPage({Key? key}) : super(key: key);
+  final MqttService? mqttService;
+  const AnalyticsPage({Key? key, this.mqttService}) : super(key: key);
 
   @override
   _AnalyticsPageState createState() => _AnalyticsPageState();
@@ -51,7 +54,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
         iconTheme: const IconThemeData(color: Colors.black),
       ),
       body: _selectedMode[0]
-          ?  AnalyticsDashboard()
+          ?  AnalyticsDashboard(mqttService: widget.mqttService)
           : const FilesystemExplorer(),
     );
   }
@@ -132,56 +135,93 @@ class _CoolToggleButton extends StatelessWidget {
 // ===========================================================================
 // Analytics Dashboard Widget
 // ===========================================================================
-class AnalyticsDashboard extends StatelessWidget {
-   AnalyticsDashboard({Key? key}) : super(key: key);
+class AnalyticsDashboard extends StatefulWidget {
+  final MqttService? mqttService;
+  AnalyticsDashboard({Key? key, this.mqttService}) : super(key: key);
 
+  @override
+  State<AnalyticsDashboard> createState() => _AnalyticsDashboardState();
+}
+
+class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
   final PerformanceService performanceService = PerformanceService.instance;
+  late final MqttService mqttService;
+  Future<bool>? _connectFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    // Use the passed MqttService or create a new one as fallback
+    mqttService = widget.mqttService ?? MqttService();
+    
+    // For broker mode, the client should already be connected
+    // For client mode, connect if not already connected
+    _connectFuture = mqttService.clientManager.isConnected
+        ? Future.value(true)
+        : _ensureConnection();
+  }
+  
+  Future<bool> _ensureConnection() async {
+    // If in broker mode and broker is running, we should already have a monitoring client
+    if (mqttService.currentMode == AppMode.broker && mqttService.isBrokerRunning) {
+      return mqttService.clientManager.isConnected;
+    }
+    // For client mode, connect to the broker IP
+    if (mqttService.currentMode == AppMode.client && mqttService.brokerIp.isNotEmpty) {
+      return await mqttService.clientManager.connect(mqttService.brokerIp);
+    }
+    return false;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<PerformanceData>(
-      valueListenable: performanceService.notifier,
-      builder: (context, data, child) {
-        return ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
-          children: [
-            // Top compact metrics bar
-            Container(
-              margin: const EdgeInsets.symmetric(vertical: 2),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.grey.shade200),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.03),
-                    blurRadius: 2,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return FutureBuilder<bool>(
+      future: _connectFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done || snapshot.data != true) {
+          return const Center(child: Text('Waiting for MQTT connection...'));
+        }
+        return ValueListenableBuilder<PerformanceData>(
+          valueListenable: performanceService.notifier,
+          builder: (context, data, child) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _MetricText(label: 'CPU', value: '${data.cpuUsage.toStringAsFixed(1)}%'),
-                  _VerticalDivider(),
-                  _MetricText(label: 'Memory', value: '${data.memoryUsage.toStringAsFixed(1)} MB'),
-                  _VerticalDivider(),
-                  _MetricText(label: 'Network', value: data.networkUsage),
-                  _VerticalDivider(),
-                  _MetricText(label: 'Disk', value: data.diskUsage),
-                  _VerticalDivider(),
-                  _MetricText(label: 'Battery', value: data.batteryLevel),
+                  // Device metrics section
+                  CpuLineChart(dataPoints: data.cpuDataPoints),
+                  const SizedBox(height: 16),
+                  _ExpandableMetricsCard(
+                    cpuUsage: data.cpuUsage,
+                    memoryUsage: data.memoryUsage,
+                    batteryLevel: data.batteryLevel,
+                    networkUsage: data.networkUsage,
+                    diskUsage: data.diskUsage,
+                  ),
+                  const SizedBox(height: 8),
+                  // Clients section header
+                  // Padding(
+                  //   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  //   child: Text(
+                  //     'Connected Clients',
+                  //     style: TextStyle(
+                  //       fontSize: 16,
+                  //       fontWeight: FontWeight.w600,
+                  //       color: Colors.grey.shade700,
+                  //     ),
+                  //   ),
+                  // ),
+                  // Clients list
+                  if (mqttService.currentMode == AppMode.broker)
+                    SizedBox(
+                      height: 320, // Adjust as needed for visible list area
+                      child: ClientMetricsList(mqttService: mqttService),
+                    ),
                 ],
               ),
-            ),
-            const SizedBox(height: 16),
-            // CPU Usage Line Chart
-            CpuLineChart(dataPoints: data.cpuDataPoints),
-            
-            // --- The "Connected Clients" section has been removed ---
-          ],
+            );
+          },
         );
       },
     );
@@ -281,26 +321,208 @@ class CpuLineChart extends StatelessWidget {
   );
 }
 
-// --- Helper and Filesystem Explorer Widgets (No changes below this line) ---
+// ===========================================================================
+// Expandable Metrics Card Widget - Minimal Black & White Design
+// ===========================================================================
+class _ExpandableMetricsCard extends StatefulWidget {
+  final double cpuUsage;
+  final double memoryUsage;
+  final String batteryLevel;
+  final String networkUsage;
+  final String diskUsage;
 
-class _MetricText extends StatelessWidget {
+  const _ExpandableMetricsCard({
+    required this.cpuUsage,
+    required this.memoryUsage,
+    required this.batteryLevel,
+    required this.networkUsage,
+    required this.diskUsage,
+  });
+
+  @override
+  State<_ExpandableMetricsCard> createState() => _ExpandableMetricsCardState();
+}
+
+class _ExpandableMetricsCardState extends State<_ExpandableMetricsCard>
+    with SingleTickerProviderStateMixin {
+  bool _isExpanded = false;
+  late AnimationController _animationController;
+  late Animation<double> _expandAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 250),
+      vsync: this,
+    );
+    _expandAnimation = CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    );
+    // Keep collapsed by default - no need to start animation
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _toggleExpanded() {
+    setState(() {
+      _isExpanded = !_isExpanded;
+      if (_isExpanded) {
+        _animationController.forward();
+      } else {
+        _animationController.reverse();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 2,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Main metrics row with dividers (always visible)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+            child: Row(
+              children: [
+                // CPU
+                Expanded(
+                  child: _MinimalMetricText(
+                    label: 'CPU', 
+                    value: '${widget.cpuUsage.toStringAsFixed(1)}%'
+                  ),
+                ),
+                _VerticalDivider(),
+                // Memory
+                Expanded(
+                  child: _MinimalMetricText(
+                    label: 'Memory', 
+                    value: '${widget.memoryUsage.toStringAsFixed(1)} MB'
+                  ),
+                ),
+                _VerticalDivider(),
+                // Battery
+                Expanded(
+                  child: _MinimalMetricText(
+                    label: 'Battery', 
+                    value: widget.batteryLevel
+                  ),
+                ),
+                _VerticalDivider(),
+                // Expand/Collapse button
+                GestureDetector(
+                  onTap: _toggleExpanded,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    child: AnimatedRotation(
+                      turns: _isExpanded ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 250),
+                      child: const Icon(
+                        Icons.keyboard_arrow_down,
+                        size: 20,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Expandable section for Network and Disk with divider
+          SizeTransition(
+            sizeFactor: _expandAnimation,
+            child: Column(
+              children: [
+                Container(
+                  height: 1,
+                  color: Colors.grey.shade200,
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _MinimalMetricText(
+                          label: 'Network', 
+                          value: widget.networkUsage
+                        ),
+                      ),
+                      _VerticalDivider(),
+                      Expanded(
+                        child: _MinimalMetricText(
+                          label: 'Disk', 
+                          value: widget.diskUsage
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Minimal metric text widget for clean black and white design
+class _MinimalMetricText extends StatelessWidget {
   final String label;
   final String value;
-  const _MetricText({required this.label, required this.value});
+  
+  const _MinimalMetricText({
+    required this.label, 
+    required this.value
+  });
+
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(label, style: const TextStyle(fontSize: 13, color: Colors.black54, fontWeight: FontWeight.w500)),
+        Text(
+          label, 
+          style: const TextStyle(
+            fontSize: 13, 
+            color: Colors.black54, 
+            fontWeight: FontWeight.w500
+          )
+        ),
         const SizedBox(height: 2),
-        Text(value, style: const TextStyle(fontSize: 14, color: Colors.black, fontWeight: FontWeight.w600)),
+        Text(
+          value, 
+          style: const TextStyle(
+            fontSize: 14, 
+            color: Colors.black, 
+            fontWeight: FontWeight.w600
+          )
+        ),
       ],
     );
   }
 }
 
+// Vertical divider for separating metrics
 class _VerticalDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -312,6 +534,8 @@ class _VerticalDivider extends StatelessWidget {
     );
   }
 }
+
+// --- Helper and Filesystem Explorer Widgets (No changes below this line) ---
 
 class FilesystemExplorer extends StatefulWidget {
   const FilesystemExplorer({Key? key}) : super(key: key);
