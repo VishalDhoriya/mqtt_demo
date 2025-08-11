@@ -3,6 +3,7 @@ import '../services/mqtt_service.dart';
 import 'host_session_screen.dart';
 import 'logs_page.dart';
 import 'topics_page.dart';
+import 'analytics_screen.dart';
 
 class NavigationContainer extends StatefulWidget {
   final MqttService mqttService;
@@ -37,6 +38,7 @@ class _NavigationContainerState extends State<NavigationContainer> {
       TopicsPage(
         mqttService: widget.mqttService,
       ),
+      const AnalyticsPage(),
     ];
   }
 
@@ -89,6 +91,11 @@ class _NavigationContainerState extends State<NavigationContainer> {
                   icon: Icon(Icons.topic_outlined),
                   activeIcon: Icon(Icons.topic),
                   label: 'Topics',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.analytics_outlined),
+                  activeIcon: Icon(Icons.analytics),
+                  label: 'Analytics',
                 ),
               ],
               currentIndex: _selectedIndex,
