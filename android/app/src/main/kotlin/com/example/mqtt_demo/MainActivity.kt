@@ -436,6 +436,9 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.net.TrafficStats
 import android.os.BatteryManager
+import android.os.Build
+import android.system.Os
+import android.system.OsConstants
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -450,37 +453,57 @@ class MainActivity: FlutterActivity() {
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
-                // --- THIS NEW METHOD IS ADDED ---
+
+                // --- ONE-TIME SETUP METHOD ---
+                "getClockTicksPerSecond" -> {
+                    // This is called once by the service to get an accurate value for CPU calculations.
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                        try {
+                            // This gets the actual clock ticks per second from the OS.
+                            val ticks = Os.sysconf(OsConstants._SC_CLK_TCK)
+                            result.success(ticks)
+                        } catch (e: Exception) {
+                            // Fallback to the common value if the call fails for any reason.
+                            result.success(100L)
+                        }
+                    } else {
+                        // Fallback for older devices that don't support the API.
+                        result.success(100L)
+                    }
+                }
+
+                // --- REAL-TIME DATA METHODS ---
                 "getBatteryDetails" -> {
                     val iFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
                     val batteryStatus: Intent? = context.registerReceiver(null, iFilter)
                     if (batteryStatus != null) {
                         val level: Int = batteryStatus.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
                         val scale: Int = batteryStatus.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
-                        // Calculate the battery percentage
+                        // Calculate the battery percentage and return it as a simple integer.
                         val batteryPct = (level * 100 / scale.toFloat()).toInt()
-                        // Send just the level back as an integer
                         result.success(batteryPct)
                     } else {
                         result.error("UNAVAILABLE", "Battery details not available.", null)
                     }
                 }
 
-                // A single, efficient call to get all raw performance counters at once.
                 "getPerformanceMetrics" -> {
                     val metrics = mutableMapOf<String, Long>()
                     val uid = android.os.Process.myUid() // Get our app's unique User ID for TrafficStats
 
                     // --- App CPU Time ---
+                    // Reads /proc/self/stat, which is reliable for an app's own process.
                     try {
                         val pid = android.os.Process.myPid()
                         val appLine = File("/proc/$pid/stat").readText()
                         val appParts = appLine.split(" ")
+                        // Sum of user time (utime, 14th field) and kernel time (stime, 15th field).
                         val appCpuJiffies = appParts[13].toLong() + appParts[14].toLong()
                         metrics["cpuJiffies"] = appCpuJiffies
                     } catch (e: Exception) { /* Fails silently if file is unreadable */ }
 
                     // --- App Disk I/O ---
+                    // Reads /proc/self/io, also reliable for an app's own process.
                     try {
                         val pid = android.os.Process.myPid()
                         File("/proc/$pid/io").forEachLine {
@@ -492,6 +515,8 @@ class MainActivity: FlutterActivity() {
                     } catch (e: Exception) { /* Fails silently */ }
 
                     // --- App Network I/O ---
+                    // Uses the official, Google-supported TrafficStats API.
+                    // This is the correct way and works for both local Wi-Fi and internet.
                     metrics["netRxBytes"] = TrafficStats.getUidRxBytes(uid) // Received bytes
                     metrics["netTxBytes"] = TrafficStats.getUidTxBytes(uid) // Transmitted bytes
 
@@ -503,6 +528,7 @@ class MainActivity: FlutterActivity() {
                         val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
                         val pid = android.os.Process.myPid()
                         val memInfo = activityManager.getProcessMemoryInfo(intArrayOf(pid))[0]
+                        // Total PSS is a good measure of an app's proportional memory footprint.
                         val memMb = memInfo.totalPss / 1024.0
                         result.success(memMb)
                     } catch (e: Exception) {
@@ -510,6 +536,7 @@ class MainActivity: FlutterActivity() {
                     }
                 }
 
+                // --- METHODS FOR THE FILESYSTEM EXPLORER ---
                 "listDirectoryWithPermissions" -> {
                     val path = call.argument<String>("path")!!
                     try {
@@ -529,6 +556,7 @@ class MainActivity: FlutterActivity() {
                         result.error("ACCESS_DENIED", "Could not list directory '$path'. Reason: ${e.message}", null)
                     }
                 }
+
                 "getProcFileContent" -> {
                     val path = call.argument<String>("path")!!
                     try {

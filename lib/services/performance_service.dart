@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart'; // Import for WidgetsBindingObserver
 
 // Use the same channel name as defined in MainActivity.kt
 const platform = MethodChannel('com.example.mqtt_demo/performance');
 
-// This class will hold all the performance data.
+/// A data class to hold a snapshot of all performance metrics.
 class PerformanceData {
   final double cpuUsage;
   final double memoryUsage;
@@ -24,33 +25,89 @@ class PerformanceData {
   });
 }
 
-// The Singleton Service
-class PerformanceService {
+/// A singleton service that is now lifecycle-aware and uses a dynamic clock speed.
+class PerformanceService with WidgetsBindingObserver {
   // --- Singleton Setup ---
   PerformanceService._privateConstructor() {
-    // Start the timer when the service is first created.
-    _timer = Timer.periodic(const Duration(seconds: 2), (timer) => _updateMetrics());
+    init();
   }
   static final PerformanceService instance = PerformanceService._privateConstructor();
 
   // --- State Variables ---
-  // These now live here, outside the widget tree.
   Timer? _timer;
   final List<double> _cpuDataPoints = [];
   final int _maxDataPoints = 30;
+  
+  // This will hold the actual clock tick rate of the device.
+  double _clockTicksPerSecond = 100.0; // Start with a safe default.
 
   Map<String, int> _lastMetrics = {};
   DateTime _lastTimestamp = DateTime.now();
   
-  // --- Public Notifier ---
-  // This is the magic part. Widgets can listen to this notifier.
-  // When we update its .value, all listening widgets will rebuild.
   final ValueNotifier<PerformanceData> notifier = ValueNotifier(PerformanceData());
 
-  // --- Logic ---
-  // This is the same logic as before, but it now lives in the service.
+  /// Initializes the service, gets static data, and registers the lifecycle listener.
+  Future<void> init() async {
+    // Register this service to listen to app lifecycle events.
+    WidgetsBinding.instance.addObserver(this);
+    
+    // Fetch the device's actual clock tick rate once at startup.
+    try {
+      final int? ticks = await platform.invokeMethod<int>('getClockTicksPerSecond');
+      if (ticks != null && ticks > 0) {
+        _clockTicksPerSecond = ticks.toDouble();
+        print("✅ Successfully fetched device clock ticks per second: $_clockTicksPerSecond");
+      }
+    } catch (e) {
+      print("⚠️ Could not fetch clock ticks, falling back to 100Hz. Error: $e");
+    }
+    
+    // Start the timer now that we are initialized.
+    _startTimer();
+  }
+  
+  // --- Lifecycle Management ---
+  
+  @override
+  // This method is called automatically by the Flutter framework.
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    switch (state) {
+      case AppLifecycleState.resumed:
+        // The app has come into the foreground.
+        print("✅ App resumed, starting performance timer.");
+        _startTimer();
+        break;
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.paused:
+      case AppLifecycleState.detached:
+        // The app is in the background or closing.
+        print("⛔️ App paused, stopping performance timer to save battery.");
+        _stopTimer();
+        break;
+      case AppLifecycleState.hidden:
+        // This state is not used on Android/iOS, but good practice to handle.
+        break;
+    }
+  }
+
+  void _startTimer() {
+    // Prevent multiple timers from running.
+    if (_timer?.isActive ?? false) return;
+    
+    // Update immediately when resuming, then start the periodic timer.
+    _updateMetrics();
+    _timer = Timer.periodic(const Duration(seconds: 2), (timer) => _updateMetrics());
+  }
+
+  void _stopTimer() {
+    _timer?.cancel();
+  }
+
+  // --- Core Logic ---
   Future<void> _updateMetrics() async {
     try {
+      // Fetch all metrics in a single batch, just like before.
       final results = await Future.wait([
         platform.invokeMapMethod<String, int>('getPerformanceMetrics'),
         platform.invokeMethod<double>('getAppMemoryUsageMB'),
@@ -66,11 +123,13 @@ class PerformanceService {
           ? now.difference(_lastTimestamp).inMilliseconds / 1000.0 
           : 1.0;
 
-      double cpuUsage = 0.0;
+      double cpuUsage = notifier.value.cpuUsage; // Default to old value
       if (_lastMetrics.containsKey('cpuJiffies') && currentMetrics.containsKey('cpuJiffies')) {
         final cpuJiffiesDiff = currentMetrics['cpuJiffies']! - _lastMetrics['cpuJiffies']!;
-        const double clockTicksPerSecond = 100.0;
-        final cpuSecondsUsed = cpuJiffiesDiff / clockTicksPerSecond;
+        
+        // *** This now uses the dynamically fetched clock speed ***
+        final cpuSecondsUsed = cpuJiffiesDiff / _clockTicksPerSecond;
+        
         final cpuUsageRatio = cpuSecondsUsed / deltaSeconds;
         cpuUsage = cpuUsageRatio * 100.0;
         
@@ -80,7 +139,7 @@ class PerformanceService {
         }
       }
 
-      String networkUsage = '...';
+      String networkUsage = notifier.value.networkUsage; // Default to old value
       if (_lastMetrics.containsKey('netRxBytes') && currentMetrics.containsKey('netRxBytes')) {
         final rxDiff = currentMetrics['netRxBytes']! - _lastMetrics['netRxBytes']!;
         final txDiff = currentMetrics['netTxBytes']! - _lastMetrics['netTxBytes']!;
@@ -88,7 +147,7 @@ class PerformanceService {
         networkUsage = '${totalSpeed.toStringAsFixed(1)} KB/s';
       }
 
-      String diskUsage = '...';
+      String diskUsage = notifier.value.diskUsage; // Default to old value
       if (_lastMetrics.containsKey('diskReadBytes') && currentMetrics.containsKey('diskReadBytes')) {
         final readDiff = currentMetrics['diskReadBytes']! - _lastMetrics['diskReadBytes']!;
         final writeDiff = currentMetrics['diskWriteBytes']! - _lastMetrics['diskWriteBytes']!;
@@ -99,15 +158,14 @@ class PerformanceService {
       _lastMetrics = currentMetrics;
       _lastTimestamp = now;
 
-      // Update the notifier with a new data object.
-      // This will trigger a rebuild in any listening widgets.
+      // Update the notifier with a new data object containing all metrics.
       notifier.value = PerformanceData(
         cpuUsage: cpuUsage,
         memoryUsage: currentMemory,
         networkUsage: networkUsage,
         diskUsage: diskUsage,
         batteryLevel: '$currentBattery%',
-        cpuDataPoints: List.from(_cpuDataPoints), // Pass a copy
+        cpuDataPoints: List.from(_cpuDataPoints),
       );
 
     } catch (e) {
@@ -116,7 +174,9 @@ class PerformanceService {
   }
 
   void dispose() {
-    _timer?.cancel();
+    // Unregister the observer to prevent memory leaks when the service is no longer needed.
+    WidgetsBinding.instance.removeObserver(this);
+    _stopTimer();
     notifier.dispose();
   }
 }
